@@ -1,0 +1,19 @@
+{
+  "name": "tdd-promise",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "ava",
+    "tdd": "ava --watch"
+  },
+  "author": "Tom Joseph",
+  "license": " MIT",
+  "devDependencies": {
+    "ava": "^0.25.0",
+    "ava-spec": "^1.1.1",
+    "chai": "^4.2.0",
+    "mocha": "^5.2.0",
+    "sinon": "^7.0.0"
+  }
+}
