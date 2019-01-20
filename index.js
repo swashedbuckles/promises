@@ -42,9 +42,18 @@ P.prototype.then = function then(onFulfilled, onRejected) {
     return call(onFulfilled, this._value)
   }
 
+  if (this._state === FULFILLED && !$.isFn(onFulfilled)) {
+    return new P(f => f(this._value));
+  }
+
   if(this._state === REJECTED && $.isFn(onRejected)) {
-    log('P calling onRejected...', onFulfilled);
+    log('P calling onRejected...', onRejected);
     return call(onRejected, this._value);
+  }
+
+  if(this._state === REJECTED && !$.isFn(onRejected)) {
+    log('P calling onRejected...', onRejected);
+    return new P((f, r) => r(this._value));
   }
 
   return new P();

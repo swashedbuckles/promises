@@ -65,6 +65,20 @@ describe('Promise States', it => {
 
     t.is(p._value, value);
   });
+
+  it.cb('should reject with reason when an error occurs in constructor', t => {
+    const stub = sinon.stub();
+    const p = new P((f, r) => {
+      throw new Error('rejected');
+    });
+
+    p.then(null, stub);
+    p.then(null, x => {
+      t.is(x, 'rejected');
+      t.true(stub.called);
+      t.end();
+    });
+  });
 });
 
 describe('The `then` method', it => {
@@ -281,7 +295,6 @@ describe('The `then` method', it => {
 
     q.then(null, stub);
     q.then(null, x => {
-      t.is(x, 'rejected');
       t.true(stub.called);
       t.end();
     });
@@ -300,22 +313,40 @@ describe('The `then` method', it => {
 
 
   it.cb('must set the exception error as the reason if rejecting because thrown', t => {
-  const stub = sinon.stub();
-    const p = new P((f, r) => {
+    const stub = sinon.stub();
+    const p = new P((f, r) => f('first'));
+
+    const q = p.then(x => {
       throw new Error('rejected');
     });
 
-    p.then(null, stub);
-    p.then(null, x => {
+    q.then(null, stub);
+    q.then(null, x => {
       t.is(x, 'rejected');
       t.true(stub.called);
       t.end();
     });
   });
 
-  it.todo('must fulfill promise2 with the same value as promise1 if onFulfilled is not a function');
+  it.cb('must fulfill promise2 with the same value as promise1 if onFulfilled is not a function', t => {
+    const p = new P(f => f('first'));
+    const q = p.then('second');
 
-  it.todo('must reject promise2 with the same reason as promise1 if onRejected is not a function')
+    q.then(x => {
+      t.is(x, 'first');
+      t.end();
+    });
+  });
+
+  it.cb('must reject promise2 with the same reason as promise1 if onRejected is not a function', t => {
+    const p = new P((f, r) => r('first'));
+    const q = p.then(null, 'second');
+
+    q.then(null, x => {
+      t.is(x, 'first');
+      t.end();
+    });
+  })
 });
 
 describe('The Promise Resolution Procedure: [[Resolve]](promise, x)', it => {
