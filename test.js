@@ -15,7 +15,7 @@ describe('Promise States', it => {
   it('should be able to transition to rejected when pending', t => {
     let fulfill;  let reject;
     const p = new P((f, r) => { fulfill = f; reject = r; });
-    
+
     t.is(p._state.val, 'PENDING');
     reject();
 
@@ -25,10 +25,10 @@ describe('Promise States', it => {
   it('should not transition to any other state when fulfilled', t => {
     let fulfill;  let reject;
     const p = new P((f, r) => { fulfill = f; reject = r; });
-    
+
     fulfill();
     t.is(p._state.val, 'FULFILLED');
-    
+
     reject();
     t.is(p._state.val, 'FULFILLED');
   });
@@ -37,17 +37,17 @@ describe('Promise States', it => {
     let fulfill;  let reject;
     const value = Math.PI;
     const p = new P((f, r) => { fulfill = f; reject = r; });
-    
+
     fulfill(value);
     fulfill(value * 2);
-    
+
     t.is(p._value, value);
   });
 
   it('should not transition to any other state when rejected', t => {
     let fulfill;  let reject;
     const p = new P((f, r) => { fulfill = f; reject = r; });
-    
+
     reject();
     t.is(p._state.val, 'REJECTED');
 
@@ -59,19 +59,34 @@ describe('Promise States', it => {
     let fulfill;  let reject;
     const value = Math.PI;
     const p = new P((f, r) => { fulfill = f; reject = r; });
-    
+
     reject(value);
     reject(value * 2);
-    
+
     t.is(p._value, value);
   });
 });
 
 describe('The `then` method', it => {
-  it.todo('should accept two _optional_ arguments');
-  it.todo('should ignore onFulfilled if it is not a function');
-  it.todo('should ingore onRejected if it is not a function');
-  
+  it('should accept two _optional_ arguments', t => {
+    const noop = () => {};
+    const p = new P(f => f('taco'));
+
+    t.notThrows(() => p.then());
+    t.notThrows(() => p.then(noop));
+    t.notThrows(() => p.then(noop, noop));
+  });
+
+  it('should ignore onFulfilled if it is not a function', t => {
+    const p = new P(f => f('taco'));
+    t.notThrows(() => p.then('robot'));
+  });
+
+  it('should ingore onRejected if it is not a function', t => {
+    const p = new P(f => f('taco'));
+    t.notThrows(() => p.then(null, 'robot'));
+  });
+
   it.cb('must call onFulfilled after the promise is fulfilled', t => {
     const p = new P(f => f('taco'));
     p.then(function() {
@@ -90,7 +105,7 @@ describe('The `then` method', it => {
     const value = 'taco';
     const p = new P(f => f(value));
 
-    p.then((res) => { 
+    p.then((res) => {
       if(res === value) {
         t.pass('taco');
         t.end();
@@ -107,17 +122,17 @@ describe('The `then` method', it => {
       t.true(onFulfill.called);
       t.end();
     });
-    
+
     t.false(onFulfill.called);
     fulfill('burrito');
-    
+
   });
 
   it.cb('must not call onFulfilled more than once', t => {
     let fulfill;
     const onFulfill = sinon.stub();
     const p = new P(f => fulfill = f);
-    
+
     p.then(onFulfill);
     p.then(() => {
       t.true(onFulfill.called);
@@ -130,14 +145,20 @@ describe('The `then` method', it => {
     fulfill('burrito');
   });
 
-  it.todo('must not call onFulfilled with a this value');
+  it.cb('must not call onFulfilled with a this value', t => {
+    const p = new P(f => f('taco'));
+    p.then(function test() {
+      t.is(this, null);
+      t.end();
+    })
+  });
 
   it.cb('must call onRejected after a promise is rejected', t => {
     const p = new P((f, r) => r('taco'));
     p.then(null, () => {
       let reject;
       const p2 = new P((f, r) => reject = r);
-      
+
       p2.then(null, () => {
         t.true(true);
         t.end();
@@ -149,7 +170,7 @@ describe('The `then` method', it => {
   it.cb('must call onRejected with the promise reason as the first argument', t=> {
     const value = 'taco';
     const p = new P((f, r) => r(value));
-    p.then(null, (res) => { 
+    p.then(null, (res) => {
       if(res === value) {
         t.pass('taco');
         t.end();
@@ -166,11 +187,11 @@ describe('The `then` method', it => {
       t.true(onReject.called);
       t.end();
     });
-    
+
     t.false(onReject.called);
     reject('burrito');
   });
-  
+
   it.cb('must not call onRejected more than once', t => {
     let reject;
     const onReject = sinon.stub();
@@ -181,19 +202,25 @@ describe('The `then` method', it => {
       t.false(onReject.calledThrice);
       t.end();
     });
-    
+
     reject('burrito');
     reject('burrito');
     reject('burrito');
   });
 
-  it.todo('must not call onRejected with a this value');
+  it.cb('must not call onRejected with a this value', t => {
+    const p = new P((f, r) => r());
+    p.then(null, function() {
+      t.is(this, null);
+      t.end();
+    });
+  });
 
   it.cb('must not call onFulfilled or onRejected until the call stack clears', t => {
     let fulfill;
     let stub = sinon.stub();
     const p = new P(f => fulfill = f);
-    
+
     p.then(stub);
     p.then(() => {
       t.true(stub.called);
@@ -213,10 +240,81 @@ describe('The `then` method', it => {
     t.true(then instanceof P);
   });
 
-  it.todo('must resolve the second promise if either callback returns a value');
-  it.todo('must reject the second promise if either callback throws an exception');
-  it.todo('must set the exception error as the reason if rejecting because thrown');
+  it.cb('must resolve the second promise if onFulfilled returns a value', t => {
+    const stub = sinon.stub();
+    const p = new P(f => f('first'));
+    const q = p.then(x => {
+      return `${x}, second`;
+    });
+
+    q.then(stub);
+    q.then(x => {
+      t.is(x, 'first, second');
+      t.true(stub.called);
+      t.end();
+    });
+
+  });
+
+  it.cb('must resolve the second promise if onRejected returns a value', t => {
+    const stub = sinon.stub();
+    const p = new P((f, r) => r('first'));
+    const q = p.then(null, x => {
+      return `${x}, second`;
+    });
+
+    q.then(stub);
+    q.then(x => {
+      t.is(x, 'first, second');
+      t.true(stub.called);
+      t.end();
+    });
+  });
+
+  it.cb('must reject the second promise if either callback throws an exception', t => {
+    const stub = sinon.stub();
+    const p = new P((f, r) => f('first'));
+
+    const q = p.then(x => {
+      throw new Error('rejected');
+    });
+
+    q.then(null, stub);
+    q.then(null, x => {
+      t.is(x, 'rejected');
+      t.true(stub.called);
+      t.end();
+    });
+  });
+
+  it('must return a promise even if not chained "properly"', t => {
+    const stub = sinon.stub();
+    const p = new P((f, r) => r('first'));
+
+    const q = p.then(x => {
+      throw new Error('rejected');
+    });
+
+    t.true(q instanceof P);
+  });
+
+
+  it.cb('must set the exception error as the reason if rejecting because thrown', t => {
+  const stub = sinon.stub();
+    const p = new P((f, r) => {
+      throw new Error('rejected');
+    });
+
+    p.then(null, stub);
+    p.then(null, x => {
+      t.is(x, 'rejected');
+      t.true(stub.called);
+      t.end();
+    });
+  });
+
   it.todo('must fulfill promise2 with the same value as promise1 if onFulfilled is not a function');
+
   it.todo('must reject promise2 with the same reason as promise1 if onRejected is not a function')
 });
 
