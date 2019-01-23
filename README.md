@@ -12,5 +12,10 @@ Yay.
 ## Todo
 
 * [ ] improve tests and test cases. consider [compliance test suite](https://github.com/promises-aplus/promises-tests) for inspiration
-* [ ] run implementation against compliance test suite
 * [ ] refactor implementation; especially the then stuff and initial promise constructor.
+* [ ] add Promise.prototype.catch
+* [ ] add Promise.resolve
+* [ ] add Promise.reject
+* [ ] add Promise.race
+* [ ] add Promise.all
+* [ ] run implementation against compliance test suite
