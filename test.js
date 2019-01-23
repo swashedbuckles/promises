@@ -571,3 +571,91 @@ describe('The Promise Resolution Procedure: [[Resolve]](promise, x)', it => {
     });
   });
 });
+
+describe('Promise.resolve', it => {
+  it('should be a function', t => {
+    t.is(typeof P.resolve, 'function');
+  });
+
+  it('should be a static method', t => {
+    const p = new P();
+    t.not(typeof p.resolve, 'function');
+  });
+
+  it('should return a promise', t => {
+    const p = P.resolve('x');
+    t.true(p instanceof P);
+  });
+
+  it('should return a resolved promise', t => {
+    const p = P.resolve();
+    t.is(p._state.val, 'FULFILLED');
+  });
+
+  it.cb('should do the promise resolution rules thingy', t => {
+    const x = 'taco';
+    const p1 = P.resolve(x);
+    const p2 = P.resolve(p1);
+    const p3 = new P(f => f(p2));
+
+    p3.then(val => {
+      t.is(val, x);
+      t.end();
+    });
+  });
+
+  it.cb('should be chainable', t => {
+    const x = 'taco';
+    const y = '...yum';
+    const p = P.resolve(x).then(x => x + y);
+
+    p.then(val => {
+      t.is(val, x + y);
+      t.end();
+    });
+  });
+})
+
+describe('Promise.reject', it => {
+  it('should be a function', t => {
+    t.is(typeof P.reject, 'function');
+  });
+
+  it('should be a static method', t => {
+    const p = new P();
+    t.not(typeof p.reject, 'function');
+  });
+
+  it('should return a promise', t => {
+    const p = P.reject('x');
+    t.true(p instanceof P);
+  });
+
+  it('should return a rejected promise', t => {
+    const p = P.reject();
+    t.is(p._state.val, 'REJECTED');
+  });
+
+  it.cb('should do the promise resolution rules thingy', t => {
+    const x = 'taco';
+    const p1 = P.reject(x);
+    const p2 = P.reject(p1);
+    const p3 = new P(f => f(p2));
+
+    p3.then(null, val => {
+      t.is(val, x);
+      t.end();
+    });
+  });
+
+  it.cb('should be chainable', t => {
+    const x = 'taco';
+    const y = '...yum';
+    const p = P.reject(x).then(null, x => x + y);
+
+    p.then(val => {
+      t.is(val, x + y);
+      t.end();
+    });
+  });
+})

@@ -8,7 +8,6 @@ function log(...args) {
   }
 }
 
-
 function P(fn) {
   this._state  = PENDING;
   this._value  = null;
@@ -24,6 +23,14 @@ function P(fn) {
     }
   }
 };
+
+P.resolve = function(value) {
+  return new P(fulfill => fulfill(value));
+}
+
+P.reject = function(reason) {
+  return new P((_, reject) => reject(reason));
+}
 
 P.prototype.then = function then(onFulfilled, onRejected) {
   log('P then', this);
