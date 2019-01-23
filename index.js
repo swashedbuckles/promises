@@ -102,9 +102,12 @@ function transition(p, state){
             x => transition(p, FULFILLED)(x),
             x => transition(p, REJECTED)(x)
           );
-        } catch (e) {
-          console.log('err getting then', e);
-          transition(p, REJECTED)(e);
+        } catch (err) {
+          log('err getting then');
+          if(p._state === PENDING) {
+            let reason = err && err.message ? err.message : err;
+            transition(p, REJECTED)(reason);
+          }
         }
       } else {
         p._value = val;

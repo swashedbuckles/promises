@@ -476,15 +476,88 @@ describe('The Promise Resolution Procedure: [[Resolve]](promise, x)', it => {
     const p = new P(f => f(x));
   });
 
-  it.todo('if x.then is fn and resolvePromise is called, run [[resolve]] (promise, y)');
+  it.cb('if x.then is fn and resolvePromise is called with value y, run [[resolve]] (promise, y)', t => {
+    const y = 'a value';
+    const x = {
+      then(yay, nay) {
+        yay(y);
+      }
+    };
 
-  it.todo('if x.then is fn and rejectPromise is called, reject promise');
+    const p = new P(f => f(x));
+    p.then(val => {
+      t.is(val, y);
+      t.end();
+    });
+  });
 
-  it.todo('if x.then is fn and something is called after reject/resolvePromise, ignore it');
+  it.cb('if x.then is fn and rejectPromise is called with value r, reject promise with r', t => {
+    const y = 'a reason';
+    const x = {
+      then(yay, nay) {
+        nay(y);
+      }
+    };
 
-  it.todo('if calling x.then throws exception e, ignore any calls to reject/Resolve promise');
+    const p = new P(f => f(x));
+    p.then(null, val => {
+      t.is(val, y);
+      t.end();
+    });
+  });
 
-  it.todo('if calling x.then throws exception e, reject promise with e as reason');
+  it.cb('if x.then is fn and something is called after reject/resolvePromise, ignore it', t => {
+    // todo, all combinations of yay/yay, yay/nay, nay/yay, nay/nay
+    const y = 'a value';
+    const z = 'a new value to discard';
+    const x = {
+      then(yay, nay) {
+        yay(y);
+        yay(z);
+      }
+    };
+
+    const p = new P(f => f(x));
+    p.then(val => {
+      t.is(val, y);
+      t.end();
+    });
+  });
+
+  it.cb('if calling x.then throws exception e, ignore error if reject/Resolve promise called before throw', t => {
+    // todo, same for nay
+    const e = 'an error';
+    const y = 'a value';
+    const x = {
+      then(yay, nay) {
+        yay(y);
+        throw new Error(e);
+      }
+    };
+
+    const p = new P(f => f(x));
+    p.then(val => {
+      t.is(val, y);
+      t.end();
+    });
+  });
+
+  it.cb('if calling x.then throws exception e before resolve/rejectPromise has been called, reject promise with e as reason', t=> {
+    const e = 'an error';
+    const y = 'a value';
+    const x = {
+      then(yay, nay) {
+        throw new Error(e);
+        yay(y);
+      }
+    };
+
+    const p = new P(f => f(x));
+    p.then(null, val => {
+      t.is(val, e);
+      t.end();
+    });
+  });
 
   it.cb('if x.then is not an fn, fulfill promise with x', t => {
     const x = {
