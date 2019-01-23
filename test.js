@@ -732,3 +732,63 @@ describe('Promise.race', it => {
     });
   });
 });
+
+describe('Promise.all', it => {
+  it('should be a static method', t => {
+    t.is(typeof P.all, 'function');
+    const p = new P();
+    t.not(typeof p.all, 'function');
+  });
+
+  it('should return a promise', t => {
+    const p = P.all([]);
+    t.true(p instanceof P);
+  });
+
+  it.cb('should return a resolved promise if an empty iterable is passed in', t => {
+    const p = P.all([]);
+    t.is(p._state.val, 'FULFILLED');
+    p.then(t.end);
+  });
+
+  it.cb('should resolve all values once all promises fulfill', t => {
+    let resolve;
+    const p1 = P.resolve('value');
+    const p2 = new P(f => (resolve = f));
+    const p3 = new P(f => setTimeout(f, 1, 'three'));
+
+    const p = P.all([p1, p2, p3]);
+    p.then(x => {
+      t.true(Array.isArray(x));
+      t.is(x[0], 'value');
+      t.is(x[1], 'too');
+      t.is(x[2], 'three');
+
+      t.end();
+    });
+
+    resolve('too');
+  });
+  it.cb('should resolve any non promise values as fulfilled promises', t => {
+    const p1 = P.resolve('value');
+    const p = P.all([p1, 'taco']);
+    p.then(x => {
+      t.true(Array.isArray(x));
+      t.is(x[0], 'value');
+      t.is(x[1], 'taco');
+
+      t.end();
+    });
+  });
+
+  it.cb('should reject if any promise values reject', t => {
+    const p1 = P.resolve('value');
+    const p2 = P.reject('reason');
+
+    const p = P.all([p1, p2])
+    p.then(null, x => {
+      t.is(x, 'reason');
+      t.end();
+    });
+  });
+});
