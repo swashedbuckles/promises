@@ -12,8 +12,6 @@
   "devDependencies": {
     "ava": "^0.25.0",
     "ava-spec": "^1.1.1",
-    "chai": "^4.2.0",
-    "mocha": "^5.2.0",
     "sinon": "^7.0.0"
   }
 }
