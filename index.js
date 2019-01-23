@@ -32,6 +32,26 @@ P.reject = function(reason) {
   return new P((_, reject) => reject(reason));
 }
 
+P.race = function(iter) {
+  // early exit if not iterable);
+  if(!iter || iter.length === 0 || !iter[Symbol.iterator]) {
+    return new P();
+  }
+
+  return new P((fulfill, reject) => {
+    for(let x of iter) {
+      if(x && !$.isPromiseLike(x)) {
+        fulfill(x);
+        return;
+      }
+
+      if($.isPromiseLike(x)) {
+        x.then(fulfill, reject);
+      }
+    }
+  });
+}
+
 P.prototype.then = function then(onFulfilled, onRejected) {
   log('P then', this);
   if(this._state === PENDING) {
@@ -66,6 +86,10 @@ P.prototype.then = function then(onFulfilled, onRejected) {
 
   return new P();
 };
+
+P.prototype.catch = function(onRejected) {
+  return this.then(null, onRejected);
+}
 
 function call(fn, value) {
   let invocation = fn.bind(null, value);

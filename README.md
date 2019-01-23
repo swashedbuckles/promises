@@ -3,9 +3,10 @@
 A (eventually) [Promises/A+ compliant](https://promisesaplus.com/) implementation of Promises, wrapped up in a fun learning exercise.
 
 1. Use TDD
-2. Learn ava.js
-3. Try not to cheat with other Promise implementations
-4. Have fun.
+2. Practice reading specs.
+3. Learn ava.js
+4. Try not to cheat with other Promise implementations
+5. Have fun.
 
 Yay.
 
@@ -13,9 +14,9 @@ Yay.
 
 * [ ] improve tests and test cases. consider [compliance test suite](https://github.com/promises-aplus/promises-tests) for inspiration
 * [ ] refactor implementation; especially the then stuff and initial promise constructor.
-* [ ] add Promise.prototype.catch
+* [x] add Promise.prototype.catch
 * [x] add Promise.resolve
 * [x] add Promise.reject
-* [ ] add Promise.race
+* [x] add Promise.race
 * [ ] add Promise.all
 * [ ] run implementation against compliance test suite

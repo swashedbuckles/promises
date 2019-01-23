@@ -349,6 +349,22 @@ describe('The `then` method', it => {
   })
 });
 
+describe('The `catch` method', it => {
+  it('should be a function on instances', t => {
+    const p = new P();
+    t.is(typeof p.catch, 'function');
+  });
+
+  it.cb('should catch a rejection', t => {
+    const x = 'a reason';
+    const p = new P((_, r) => r(x));
+    p.catch(val => {
+      t.is(val, x);
+      t.end();
+    })
+  })
+});
+
 describe('The Promise Resolution Procedure: [[Resolve]](promise, x)', it => {
   it.cb('a promise cannot resolve itself (promise === x)', t => {
     let resolve;
@@ -659,3 +675,60 @@ describe('Promise.reject', it => {
     });
   });
 })
+
+
+describe('Promise.race', it => {
+  it('should be a static method', t => {
+    t.is(typeof P.race, 'function');
+    const p = new P();
+    t.not(typeof p.race, 'function');
+  });
+
+  it('should return a promise', t => {
+    const p = P.race();
+    t.true(p instanceof P);
+  });
+
+  it('should never settle the promise if nothing passed in', t => {
+    const p = P.race();
+    t.is(p._state.val, 'PENDING');
+  });
+
+  it.cb('should resolve the first non-promise value found', t => {
+    const x = new P();
+    const y = 'a value';
+    const p = P.race([x, y]);
+
+    p.then(val => {
+      t.is(val, y);
+      t.end();
+    });
+  });
+
+  it.cb('should settle the promise the same way as the first promise that settles that is passed in as an argument', t => {
+    let resolve;
+    const x = 'a value';
+    const p1 = new P();
+    const p2 = new P(f => (resolve = f));
+
+    const p = P.race([p1, p2]);
+    p.then(val => {
+      t.is(val, x);
+      t.end();
+    });
+
+    resolve(x);
+  });
+
+  it.cb('should settle with the first settled promise found', t => {
+    const x = 'a value';
+    const p1 = new P();
+    const p2 = new P(f => f(x));
+
+    const p = P.race([p1, p2]);
+    p.then(val => {
+      t.is(val, x);
+      t.end();
+    });
+  });
+});
