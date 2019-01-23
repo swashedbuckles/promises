@@ -769,11 +769,13 @@ describe('Promise.all', it => {
 
     resolve('too');
   });
+
   it.cb('should resolve any non promise values as fulfilled promises', t => {
     const p1 = P.resolve('value');
     const p = P.all([p1, 'taco']);
     p.then(x => {
       t.true(Array.isArray(x));
+
       t.is(x[0], 'value');
       t.is(x[1], 'taco');
 

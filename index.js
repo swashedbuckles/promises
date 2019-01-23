@@ -25,7 +25,7 @@ function P(fn) {
 };
 
 P.resolve = function(value) {
-  return new P(fulfill => fulfill(value));
+  return new P(resolve => resolve(value));
 }
 
 P.reject = function(reason) {
@@ -38,17 +38,50 @@ P.race = function(iter) {
     return new P();
   }
 
-  return new P((fulfill, reject) => {
+  return new P((resolve, reject) => {
     for(let x of iter) {
       if(x && !$.isPromiseLike(x)) {
-        fulfill(x);
+        resolve(x);
         return;
       }
 
       if($.isPromiseLike(x)) {
-        x.then(fulfill, reject);
+        x.then(resolve, reject);
       }
     }
+  });
+}
+
+P.all = function(iter) {
+  if($.isIterable(iter) && $.isEmpty(iter)) {
+    const p = new P();
+    transition(p, FULFILLED)();
+    return p;
+  }
+
+  return new P((resolve, reject) => {
+    const values = [];
+    const count = iter.length;
+
+    const tryResolve = (values, count, resolve) => {
+      if(values.length === count) {
+        resolve(values)
+      }
+    }
+
+    [...iter].forEach((p, index) => {
+      if(p && !$.isPromiseLike(p)) {
+        values[index] = p;
+        tryResolve(values, count, resolve);
+      }
+
+      if($.isPromiseLike(p)) {
+        p.then(
+          val => { values[index] = val; tryResolve(values, count, resolve); },
+          reject
+        );
+      }
+    });
   });
 }
 

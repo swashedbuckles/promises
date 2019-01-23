@@ -14,9 +14,11 @@ Yay.
 
 * [ ] improve tests and test cases. consider [compliance test suite](https://github.com/promises-aplus/promises-tests) for inspiration
 * [ ] refactor implementation; especially the then stuff and initial promise constructor.
+* [ ] less es+ moar es5.
+* [ ] run implementation against compliance test suite
 * [x] add Promise.prototype.catch
 * [x] add Promise.resolve
 * [x] add Promise.reject
 * [x] add Promise.race
-* [ ] add Promise.all
-* [ ] run implementation against compliance test suite
+* [x] add Promise.all
+* [x] promise.all returns sync fulfilled if empty iter passed in
