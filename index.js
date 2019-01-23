@@ -13,9 +13,10 @@ function P(fn) {
   this._state  = PENDING;
   this._value  = null;
   this._subscribers = [];
-
+  log('Promise Constructor');
   if($.isFn(fn)) {
     try {
+      log('\tin constructor try');
       fn(transition(this, FULFILLED), transition(this, REJECTED))
     } catch (err) {
       const reason = err && err.message;
@@ -70,11 +71,18 @@ function call(fn, value) {
   });
 
   let wrapped = () => {
+    let result;
     try {
-      resolve.call(promise, invocation());
+      result = invocation();
     } catch (err) {
       let reason = err && err.message ? err.message : err;
       reject.call(promise, reason);
+    }
+
+    if(typeof result === P) {
+      log('returning a promise...');
+    } else {
+      resolve.call(promise, result);
     }
   };
 
@@ -85,8 +93,23 @@ function call(fn, value) {
 function transition(p, state){
   return function(val) {
     if(p && p._state === PENDING) {
-      p._value = val;
-      p._state = state;
+      if(val === p) {
+        p._state = REJECTED;
+        p._value = new TypeError('Chaining cycle detected for promise');
+      } else if (val instanceof P || (val && $.isFn(val.then))) {
+        try {
+          val.then(
+            x => transition(p, FULFILLED)(x),
+            x => transition(p, REJECTED)(x)
+          );
+        } catch (e) {
+          console.log('err getting then', e);
+          transition(p, REJECTED)(e);
+        }
+      } else {
+        p._value = val;
+        p._state = state;
+      }
       notifySubscribers(p);
     }
   }

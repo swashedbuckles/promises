@@ -350,20 +350,151 @@ describe('The `then` method', it => {
 });
 
 describe('The Promise Resolution Procedure: [[Resolve]](promise, x)', it => {
-  it.todo('a promise cannot resolve itself (promise === x)');
-  it.todo('if x is a promise, promise must remain pending until x is fulfilled/rejected');
-  it.todo('if x is a promise, promise must fulfill with same value as x when fulfilled');
-  it.todo('if x is a promise, promise must reject with same reason as x when rejected');
-  it.todo('should fulfill promise with x if x is not an object or a function');
+  it.cb('a promise cannot resolve itself (promise === x)', t => {
+    let resolve;
+    const p = new P(f => (resolve = f));
+    resolve(p);
 
-  it.todo('if x is obj/fn, should reject if retriveing x.then throws an error');
-  it.todo('if x is obj/fn, and x.then is fn, call it with x as this');
-  it.todo('if x is obj/fn, and x.then is fn, call with arg1 resolvePromise, arg2 rejectPromise');
+    p.then(null, x => {
+      t.is(x.message, 'Chaining cycle detected for promise');
+      t.end();
+    });
+  });
+
+  it.cb('if x is a promise, promise must remain pending until x is fulfilled', t => {
+    let resolve;
+
+    const p = new P(f => (resolve = f));
+    const q = new P(f => f(p));
+
+    t.is(q._state.val, 'PENDING');
+    q.then(x => t.end());
+
+    resolve('taco');
+  });
+
+  it.cb('if x is a promise, promise must remain pending until x is rejected', t => {
+    let reject;
+
+    const p = new P((f, r) => (reject = r));
+    const q = new P(f => f(p));
+
+    t.is(q._state.val, 'PENDING');
+    q.then(null, x => {
+      t.end();
+    });
+
+    reject('taco');
+  });
+
+
+  it.cb('if x is a promise, promise must fulfill with same value as x when fulfilled', t => {
+    let resolve;
+
+    const p = new P(f => (resolve = f));
+    const q = new P(f => f(p));
+
+    q.then(x => {
+      t.is(x, 'taco')
+      t.end();
+    });
+
+    resolve('taco');
+  });
+
+  it.cb('if x is a promise, promise must reject with same reason as x when rejected', t => {
+    let reject;
+
+    const p = new P((f, r) => (reject = r));
+    const q = new P(f => f(p));
+
+    q.then(null, x => {
+      t.is(x, 'taco')
+      t.end();
+    });
+
+    reject('taco');
+  });
+
+  it.cb('should fulfill promise with x if x is not an object or a function', t => {
+    const values = ['x', 1, true, new Date(), ['x', 1, true, new Date()]];
+
+    t.plan(values.length);
+
+    values.forEach(value => {
+      const p = new P(f => {
+        f(value);
+      });
+
+      p.then(x => {
+        t.is(x, value);
+      });
+    });
+
+    setTimeout(x => {
+      t.end();
+    }, 10);
+  });
+
+  it.cb('if x is obj/fn, should reject if retriveing x.then throws an error', t => {
+    const err = 'iyamanerror';
+    const test = {
+      get then() {
+        throw new Error(err);
+      }
+    };
+
+    const p = new P(f => f(test));
+    t.is(p._state.val, 'REJECTED');
+    p.then(null, x => {
+      t.is(x, err);
+      t.end();
+    })
+  });
+
+  it.cb('if x is obj/fn, and x.then is fn, call it with x as this', t => {
+    const x = {
+      then() {
+        t.is(this, x);
+        t.end();
+      }
+    }
+
+    const p = new P(f => f(x));
+  });
+
+  it.cb('if x is obj/fn, and x.then is fn, call with arg1 resolvePromise, arg2 rejectPromise', t => {
+    const x = {
+      then(resolvePromise, rejectPromise) {
+        t.is(this, x);
+        t.is(typeof resolvePromise, 'function');
+        t.is(typeof rejectPromise, 'function');
+        t.end();
+      }
+    };
+
+    const p = new P(f => f(x));
+  });
+
   it.todo('if x.then is fn and resolvePromise is called, run [[resolve]] (promise, y)');
+
   it.todo('if x.then is fn and rejectPromise is called, reject promise');
+
   it.todo('if x.then is fn and something is called after reject/resolvePromise, ignore it');
+
   it.todo('if calling x.then throws exception e, ignore any calls to reject/Resolve promise');
+
   it.todo('if calling x.then throws exception e, reject promise with e as reason');
-  it.todo('if x.then is not an fn, fulfill promise with x');
-  it.todo('')
+
+  it.cb('if x.then is not an fn, fulfill promise with x', t => {
+    const x = {
+      then: 'then'
+    };
+    const p = new P(f => f(x));
+
+    p.then(val => {
+      t.is(val, x);
+      t.end();
+    });
+  });
 });
