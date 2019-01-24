@@ -1,21 +1,28 @@
 const {PENDING, FULFILLED, REJECTED} = require('./lib/enum');
-const $ = require('./lib/util');
-const enableLogging = false;
+const {
+  isFn,
+  isObj,
+  isPromiseLike,
+  isArray,
+  isEmpty,
+  isNil,
 
-function log(...args) {
-  if(enableLogging) {
-    console.log(...args);
-  }
-}
+  isPending,
+  isResolved,
+  isRejected,
+  isFulfilled,
+
+  deferCall,
+  createDeferred
+} = require('./lib/util');
 
 function P(fn) {
   this._state  = PENDING;
   this._value  = null;
   this._subscribers = [];
-  log('Promise Constructor');
-  if($.isFn(fn)) {
+
+  if(isFn(fn)) {
     try {
-      log('\tin constructor try');
       fn(transition(this, FULFILLED), transition(this, REJECTED))
     } catch (err) {
       const reason = err && err.message;
@@ -25,107 +32,97 @@ function P(fn) {
 };
 
 P.resolve = function(value) {
-  return new P(resolve => resolve(value));
+  return new P(f => f(value));
 }
 
 P.reject = function(reason) {
-  return new P((_, reject) => reject(reason));
+  return new P((_, r) => r(reason));
 }
 
-P.race = function(iter) {
-  // early exit if not iterable);
-  if(!iter || iter.length === 0 || !iter[Symbol.iterator]) {
+P.race = function(promises) {
+  if(!isArray(promises) || isEmpty(promises)) {
     return new P();
   }
 
   return new P((resolve, reject) => {
-    for(let x of iter) {
-      if(x && !$.isPromiseLike(x)) {
-        resolve(x);
+    for(let i = 0, len = promises.length; i < len; i++)  {
+      let val = promises[i];
+      if(val && !isPromiseLike(val)) {
+        resolve(val);
         return;
       }
 
-      if($.isPromiseLike(x)) {
-        x.then(resolve, reject);
+      if(isPromiseLike(val)) {
+        val.then(resolve, reject);
       }
     }
   });
 }
 
-P.all = function(iter) {
-  if($.isIterable(iter) && $.isEmpty(iter)) {
-    const p = new P();
-    transition(p, FULFILLED)();
-    return p;
+P.all = function(promises) {
+  if(isArray(promises) && isEmpty(promises)) {
+    return new P(f => f());
   }
 
   return new P((resolve, reject) => {
     const values = [];
-    const count = iter.length;
+    const count = promises.length;
 
-    const tryResolve = (values, count, resolve) => {
-      if(values.length === count) {
-        resolve(values)
-      }
-    }
-
-    [...iter].forEach((p, index) => {
-      if(p && !$.isPromiseLike(p)) {
-        values[index] = p;
-        tryResolve(values, count, resolve);
-      }
-
-      if($.isPromiseLike(p)) {
+    promises.forEach((p, index) => {
+      if(isPromiseLike(p)) {
         p.then(
           val => { values[index] = val; tryResolve(values, count, resolve); },
           reject
         );
+        return;
       }
+
+      values[index] = p;
+      tryResolve(values, count, resolve);
     });
   });
 }
 
+function tryResolve(values, count, resolver) {
+  if(values.length === count) {
+    resolver(values)
+  }
+}
+
 P.prototype.then = function then(onFulfilled, onRejected) {
-  log('P then', this);
-  if(this._state === PENDING) {
+  if(isPending(this)) {
     const subscriber = {};
 
     subscriber[FULFILLED] = onFulfilled;
     subscriber[REJECTED] = onRejected;
 
     this._subscribers.push(subscriber);
-    log('state is pending, returning new P');
-    return new P();
+    return this;
   }
 
-  if(this._state === FULFILLED && $.isFn(onFulfilled)) {
-    log('P calling onFulfilled...', onFulfilled);
+  if(isFulfilled(this) && isFn(onFulfilled)) {
     return call(onFulfilled, this._value)
   }
 
-  if (this._state === FULFILLED && !$.isFn(onFulfilled)) {
+  if (isFulfilled(this) && !isFn(onFulfilled)) {
     return new P(f => f(this._value));
   }
 
-  if(this._state === REJECTED && $.isFn(onRejected)) {
-    log('P calling onRejected...', onRejected);
+  if(isRejected(this) && isFn(onRejected)) {
     return call(onRejected, this._value);
   }
 
-  if(this._state === REJECTED && !$.isFn(onRejected)) {
-    log('P calling onRejected...', onRejected);
+  if(isRejected(this) && !isFn(onRejected)) {
     return new P((f, r) => r(this._value));
   }
-
-  return new P();
 };
 
 P.prototype.catch = function(onRejected) {
   return this.then(null, onRejected);
 }
 
+
 function call(fn, value) {
-  let invocation = fn.bind(null, value);
   let resolve;
   let reject;
 
@@ -137,38 +134,36 @@ function call(fn, value) {
   let wrapped = () => {
     let result;
     try {
-      result = invocation();
+      result = fn.call(null, value);
     } catch (err) {
       let reason = err && err.message ? err.message : err;
       reject.call(promise, reason);
     }
 
     if(typeof result === P) {
-      log('returning a promise...');
     } else {
       resolve.call(promise, result);
     }
   };
 
-  $.defer(wrapped);
+  deferCall(wrapped);
   return promise;
 }
 
 function transition(p, state){
   return function(val) {
-    if(p && p._state === PENDING) {
+    if(isPending(p)) {
       if(val === p) {
         p._state = REJECTED;
         p._value = new TypeError('Chaining cycle detected for promise');
-      } else if (val instanceof P || (val && $.isFn(val.then))) {
+      } else if (val instanceof P || (val && isFn(val.then))) {
         try {
           val.then(
             x => transition(p, FULFILLED)(x),
             x => transition(p, REJECTED)(x)
           );
         } catch (err) {
-          log('err getting then');
-          if(p._state === PENDING) {
+          if(isPending(p)) {
             let reason = err && err.message ? err.message : err;
             transition(p, REJECTED)(reason);
           }
@@ -184,11 +179,12 @@ function transition(p, state){
 
 function notifySubscribers(p) {
   p._subscribers.forEach(subscriber => {
-    const callback = subscriber[p._state.val];
-    if($.isFn(callback)) {
+    const callback = subscriber[p._state];
+    if(isFn(callback)) {
       call(callback, p._value);
     }
   });
+  p._subscribers.length = 0;
 }
 
 module.exports = P;
