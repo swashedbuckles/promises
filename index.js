@@ -12,8 +12,7 @@ const {
   isRejected,
   isFulfilled,
 
-  deferCall,
-  createDeferred
+  deferCall
 } = require('./lib/util');
 
 function P(fn) {
@@ -40,21 +39,22 @@ P.reject = function(reason) {
 }
 
 P.race = function(promises) {
-  if(!isArray(promises) || isEmpty(promises)) {
+  promises = [].concat(promises).filter(x => !isNil(x))
+  promises = promises.filter(x => !isNil(x));
+
+  if(isEmpty(promises)) {
     return new P();
   }
 
   return new P((resolve, reject) => {
     for(let i = 0, len = promises.length; i < len; i++)  {
       let val = promises[i];
-      if(val && !isPromiseLike(val)) {
+      if(!isPromiseLike(val)) {
         resolve(val);
         return;
       }
 
-      if(isPromiseLike(val)) {
-        val.then(resolve, reject);
-      }
+      val.then(resolve, reject);
     }
   });
 }
@@ -74,6 +74,7 @@ P.all = function(promises) {
           val => { values[index] = val; tryResolve(values, count, resolve); },
           reject
         );
+
         return;
       }
 
@@ -121,7 +122,6 @@ P.prototype.catch = function(onRejected) {
   return this.then(null, onRejected);
 }
 
-
 function call(fn, value) {
   let resolve;
   let reject;
@@ -152,28 +152,31 @@ function call(fn, value) {
 
 function transition(p, state){
   return function(val) {
-    if(isPending(p)) {
-      if(val === p) {
-        p._state = REJECTED;
-        p._value = new TypeError('Chaining cycle detected for promise');
-      } else if (val instanceof P || (val && isFn(val.then))) {
-        try {
-          val.then(
-            x => transition(p, FULFILLED)(x),
-            x => transition(p, REJECTED)(x)
-          );
-        } catch (err) {
-          if(isPending(p)) {
-            let reason = err && err.message ? err.message : err;
-            transition(p, REJECTED)(reason);
-          }
-        }
-      } else {
-        p._value = val;
-        p._state = state;
-      }
-      notifySubscribers(p);
+    if(isResolved(p)) {
+      return;
     }
+
+    if(val === p) {
+      transition(p, REJECTED)(new TypeError('Chaining cycle detected for promise'))
+      return;
+    }
+
+    if (isPromiseLike(val)) {
+      try {
+        val.then(
+          x => transition(p, FULFILLED)(x),
+          x => transition(p, REJECTED)(x)
+        );
+      } catch (err) {
+        let reason = err && err.message ? err.message : err;
+        transition(p, REJECTED)(reason);
+      }
+      return;
+    }
+
+    p._value = val;
+    p._state = state;
+    notifySubscribers(p);
   }
 }
 
@@ -184,6 +187,7 @@ function notifySubscribers(p) {
       call(callback, p._value);
     }
   });
+
   p._subscribers.length = 0;
 }
 
