@@ -564,7 +564,6 @@ describe('The Promise Resolution Procedure: [[Resolve]](promise, x)', it => {
     const x = {
       then(yay, nay) {
         throw new Error(e);
-        yay(y);
       }
     };
 
