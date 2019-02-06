@@ -1,7 +1,13 @@
+/** @typedef {import('./lib/enum').STATE} STATE */
+/**
+ * @callback Resolver
+ * @param {function} onFulfilled
+ * @param {function} onRejected
+ */
+
 const {PENDING, FULFILLED, REJECTED} = require('./lib/enum');
 const {
   isFn,
-  isObj,
   isPromiseLike,
   isArray,
   isEmpty,
@@ -15,9 +21,16 @@ const {
   deferCall
 } = require('./lib/util');
 
+
+/**
+ * @class
+ * @constructor
+ * @param {Resolver} [fn]
+ */
 function P(fn) {
-  this._state  = PENDING;
-  this._value  = null;
+  /**@type {STATE} */ this._state  = PENDING;
+  /**@type {any} */   this._value  = null;
+  /**@type {Array<Object.<STATE,function>>}*/
   this._subscribers = [];
 
   if(isFn(fn)) {
@@ -30,14 +43,26 @@ function P(fn) {
   }
 };
 
+/**
+ * @param {any} value
+ * @return {P}
+ */
 P.resolve = function(value) {
   return new P(f => f(value));
 }
 
+/**
+ * @param {any} reason
+ * @return {P}
+ */
 P.reject = function(reason) {
   return new P((_, r) => r(reason));
 }
 
+/**
+ * @param {Array<P>} promises
+ * @return {P}
+ */
 P.race = function(promises) {
   promises = [].concat(promises).filter(x => !isNil(x))
   promises = promises.filter(x => !isNil(x));
@@ -59,6 +84,10 @@ P.race = function(promises) {
   });
 }
 
+/**
+ * @param {Array<P>} promises
+ * @return {P}
+ */
 P.all = function(promises) {
   if(isArray(promises) && isEmpty(promises)) {
     return new P(f => f());
@@ -84,12 +113,22 @@ P.all = function(promises) {
   });
 }
 
+/**
+ * @param {Array<any>} values,
+ * @param {number} count
+ * @param {function} resolver
+ */
 function tryResolve(values, count, resolver) {
   if(values.length === count) {
     resolver(values)
   }
 }
 
+/**
+ * @param {function} onFulfilled
+ * @param {function} onRejected
+ * @return {P}
+ */
 P.prototype.then = function then(onFulfilled, onRejected) {
   if(isPending(this)) {
     const subscriber = {};
@@ -118,10 +157,18 @@ P.prototype.then = function then(onFulfilled, onRejected) {
   }
 };
 
+/**
+ * @param {function} onRejected
+ * @return {P}
+ */
 P.prototype.catch = function(onRejected) {
   return this.then(null, onRejected);
 }
 
+/**
+ * @param {function} fn
+ * @param {any} value
+ */
 function call(fn, value) {
   let resolve;
   let reject;
@@ -140,7 +187,7 @@ function call(fn, value) {
       reject.call(promise, reason);
     }
 
-    if(typeof result === P) {
+    if(result instanceof P) {
     } else {
       resolve.call(promise, result);
     }
@@ -150,6 +197,10 @@ function call(fn, value) {
   return promise;
 }
 
+/**
+ * @param {P} p
+ * @param {STATE} state
+ */
 function transition(p, state){
   return function(val) {
     if(isResolved(p)) {
@@ -180,9 +231,13 @@ function transition(p, state){
   }
 }
 
+/**
+ * @param {P} p promise
+ */
 function notifySubscribers(p) {
   p._subscribers.forEach(subscriber => {
-    const callback = subscriber[p._state];
+    const key = p._state.val;
+    const callback = subscriber[key];
     if(isFn(callback)) {
       call(callback, p._value);
     }
