@@ -10,7 +10,7 @@
   "author": "Tom Joseph",
   "license": " MIT",
   "devDependencies": {
-    "ava": "^0.25.0",
+    "ava": "^2.4.0",
     "ava-spec": "^1.1.1",
     "sinon": "^7.2.3"
   }
