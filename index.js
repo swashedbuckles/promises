@@ -27,91 +27,118 @@ const {
  * @constructor
  * @param {Resolver} [fn]
  */
-function P(fn) {
-  /**@type {STATE} */ this._state  = PENDING;
-  /**@type {any} */   this._value  = null;
-  /**@type {Array<Object.<STATE,function>>}*/
-  this._subscribers = [];
+class P {
+  constructor(fn) {
+    /**@type {STATE} */ this._state = PENDING;
+    /**@type {any} */   this._value = null;
+    /**@type {Array<Object.<STATE,function>>}*/
+    this._subscribers = [];
 
-  if(isFn(fn)) {
-    try {
-      fn(transition(this, FULFILLED), transition(this, REJECTED))
-    } catch (err) {
-      const reason = err && err.message;
-      transition(this, REJECTED)(reason);
+    if (isFn(fn)) {
+      try {
+        fn(transition(this, FULFILLED), transition(this, REJECTED));
+      }
+      catch (err) {
+        const reason = err && err.message;
+        transition(this, REJECTED)(reason);
+      }
     }
+  }
+  /**
+   * @param {function} onFulfilled
+   * @param {function} onRejected
+   * @return {P}
+   */
+  then(onFulfilled, onRejected) {
+    if (isPending(this)) {
+      const subscriber = {};
+      subscriber[FULFILLED] = onFulfilled;
+      subscriber[REJECTED] = onRejected;
+      this._subscribers.push(subscriber);
+      return this;
+    }
+    if (isFulfilled(this) && isFn(onFulfilled)) {
+      return call(onFulfilled, this._value);
+    }
+    if (isFulfilled(this) && !isFn(onFulfilled)) {
+      return new P(f => f(this._value));
+    }
+    if (isRejected(this) && isFn(onRejected)) {
+      return call(onRejected, this._value);
+    }
+    if (isRejected(this) && !isFn(onRejected)) {
+      return new P((f, r) => r(this._value));
+    }
+  }
+
+  /**
+   * @param {function} onRejected
+   * @return {P}
+   */
+  catch(onRejected) {
+    return this.then(null, onRejected);
+  }
+
+  /**
+   * @param {any} value
+   * @return {P}
+   */
+  static resolve(value) {
+    return new P(f => f(value));
+  }
+
+  /**
+   * @param {any} reason
+   * @return {P}
+   */
+  static reject(reason) {
+    return new P((_, r) => r(reason));
+  }
+
+  /**
+   * @param {Array<P>} promises
+   * @return {P}
+   */
+  static race(promises) {
+    promises = [].concat(promises).filter(x => !isNil(x));
+    promises = promises.filter(x => !isNil(x));
+    if (isEmpty(promises)) {
+      return new P();
+    }
+    return new P((resolve, reject) => {
+      for (let i = 0, len = promises.length; i < len; i++) {
+        let val = promises[i];
+        if (!isPromiseLike(val)) {
+          resolve(val);
+          return;
+        }
+        val.then(resolve, reject);
+      }
+    });
+  }
+
+  /**
+   * @param {Array<P>} promises
+   * @return {P}
+   */
+  static all(promises) {
+    if (isArray(promises) && isEmpty(promises)) {
+      return new P(f => f());
+    }
+    return new P((resolve, reject) => {
+      const values = [];
+      const count = promises.length;
+      promises.forEach((p, index) => {
+        if (isPromiseLike(p)) {
+          p.then(val => { values[index] = val; tryResolve(values, count, resolve); }, reject);
+          return;
+        }
+        values[index] = p;
+        tryResolve(values, count, resolve);
+      });
+    });
   }
 };
-
-/**
- * @param {any} value
- * @return {P}
- */
-P.resolve = function(value) {
-  return new P(f => f(value));
-}
-
-/**
- * @param {any} reason
- * @return {P}
- */
-P.reject = function(reason) {
-  return new P((_, r) => r(reason));
-}
-
-/**
- * @param {Array<P>} promises
- * @return {P}
- */
-P.race = function(promises) {
-  promises = [].concat(promises).filter(x => !isNil(x))
-  promises = promises.filter(x => !isNil(x));
-
-  if(isEmpty(promises)) {
-    return new P();
-  }
-
-  return new P((resolve, reject) => {
-    for(let i = 0, len = promises.length; i < len; i++)  {
-      let val = promises[i];
-      if(!isPromiseLike(val)) {
-        resolve(val);
-        return;
-      }
-
-      val.then(resolve, reject);
-    }
-  });
-}
-
-/**
- * @param {Array<P>} promises
- * @return {P}
- */
-P.all = function(promises) {
-  if(isArray(promises) && isEmpty(promises)) {
-    return new P(f => f());
-  }
-
-  return new P((resolve, reject) => {
-    const values = [];
-    const count = promises.length;
-
-    promises.forEach((p, index) => {
-      if(isPromiseLike(p)) {
-        p.then(
-          val => { values[index] = val; tryResolve(values, count, resolve); },
-          reject
-        );
-
-        return;
-      }
-
-      values[index] = p;
-      tryResolve(values, count, resolve);
-    });
-  });
-}
 
 /**
  * @param {Array<any>} values,
@@ -122,47 +149,6 @@ function tryResolve(values, count, resolver) {
   if(values.length === count) {
     resolver(values)
   }
-}
-
-/**
- * @param {function} onFulfilled
- * @param {function} onRejected
- * @return {P}
- */
-P.prototype.then = function then(onFulfilled, onRejected) {
-  if(isPending(this)) {
-    const subscriber = {};
-
-    subscriber[FULFILLED] = onFulfilled;
-    subscriber[REJECTED] = onRejected;
-
-    this._subscribers.push(subscriber);
-    return this;
-  }
-
-  if(isFulfilled(this) && isFn(onFulfilled)) {
-    return call(onFulfilled, this._value)
-  }
-
-  if (isFulfilled(this) && !isFn(onFulfilled)) {
-    return new P(f => f(this._value));
-  }
-
-  if(isRejected(this) && isFn(onRejected)) {
-    return call(onRejected, this._value);
-  }
-
-  if(isRejected(this) && !isFn(onRejected)) {
-    return new P((f, r) => r(this._value));
-  }
-};
-
-/**
- * @param {function} onRejected
- * @return {P}
- */
-P.prototype.catch = function(onRejected) {
-  return this.then(null, onRejected);
 }
 
 /**
